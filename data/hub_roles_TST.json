@@ -1,0 +1,57 @@
+{
+  "_comment": "Offline hub role id/name list for tests or cache-hub-roles --from-json (Construction Admin roleIds).",
+  "roles": [
+    {
+      "id": "039bff22-76b4-4b57-9c5a-75b5dbc6eb63",
+      "name": "Lieferant_PSU"
+    },
+    {
+      "id": "180b57bb-e9f1-4bc7-abe3-3415e0b32f03",
+      "name": "Lieferant_Stahlstruktur"
+    },
+    {
+      "id": "1cd83ffd-ee2f-48cd-bb45-cf89240e30d6",
+      "name": "Lieferant_Leitungsbau"
+    },
+    {
+      "id": "431e8817-b998-417c-8467-e6c8981bdbfe",
+      "name": "Lieferant_Diverses"
+    },
+    {
+      "id": "7ec1abb7-a497-472b-91d6-8b47ec192e22",
+      "name": "Lieferant_HV Kabel"
+    },
+    {
+      "id": "992903d7-37f7-493f-b171-8dec72060437",
+      "name": "Lieferant_Bau"
+    },
+    {
+      "id": "9dbdb257-ce9d-4a12-84ce-6bffb25227dc",
+      "name": "Lieferant_Sekundärtechnik"
+    },
+    {
+      "id": "b513060e-a8c1-4474-9da6-2906b29a9675",
+      "name": "Swissgrid_intern"
+    },
+    {
+      "id": "b7f454a0-1080-4535-b0d6-fcffebc92289",
+      "name": "Lieferant_Transformator"
+    },
+    {
+      "id": "cbba0e8d-38a3-47a2-839b-578bfc23b60d",
+      "name": "Lieferant_Nebenanlagen"
+    },
+    {
+      "id": "d6a1859e-4874-48db-b277-33f5acbf2786",
+      "name": "Fachplaner"
+    },
+    {
+      "id": "db2652c7-c203-42cd-87ac-118713db0775",
+      "name": "Lieferant_Gebäudetechnik"
+    },
+    {
+      "id": "e7c52213-dc3a-42f0-831a-0038b59511b1",
+      "name": "Lieferant_Primärtechnik"
+    }
+  ]
+}

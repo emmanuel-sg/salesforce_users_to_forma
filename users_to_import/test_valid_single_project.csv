@@ -1,0 +1,4 @@
+first_name,last_name,email,project_name,roles,company,access_level
+Alex,Sample,alex.sample@example.com,SAAA-ProvisionerAAA,Swissgrid_intern,Swissgrid AG,Member
+Blair,Test,blair.test@example.com,SAAA-ProvisionerAAA,Swissgrid_intern;Fachplaner,Swissgrid AG,Member
+Casey,Demo,casey.demo@example.com,SAAA-ProvisionerAAA,Lieferant_Bau,Swissgrid AG,Administrator

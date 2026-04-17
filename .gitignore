@@ -1,0 +1,29 @@
+**/*.egg-info/
+data/tokens/
+
+# Secrets / local config
+.env
+
+# Local caches / artifacts
+logs/
+data/*.db
+data/cache_*.db
+
+# Python caches
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+
+# Virtual environments
+.venv/
+venv/
+
+# Editor / OS junk
+.vscode/
+.DS_Store
+Thumbs.db
+

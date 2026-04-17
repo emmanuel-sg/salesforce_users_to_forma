@@ -1,0 +1,14 @@
+{
+  "_comment": "Example per-project import payload: Construction Admin users array for one project (test/export sample).",
+  "users": [
+    {
+      "email": "joel.hirschi@swissgrid.ch",
+      "products": [],
+      "roleIds": [
+        "r-intern",
+        "r-arch"
+      ],
+      "companyId": "c-sg"
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+first_name,last_name,email,project_name,roles,company,access_level
+Joel,Hirschi,joel.hirschi@swissgrid.ch,S055_N00001552,swissgrid_intern;Architect,Swissgrid AG,Member
+Jane,Doe,jane.doe@swissgrid.ch,S055_N00001552,MissingRole,Swissgrid AG,Member

@@ -1,0 +1,5 @@
+first_name,last_name,email,project_name,roles,company,access_level
+Ivy,BadAccess,ivy.badaccess@example.com,SAAA-ProvisionerAAA,Swissgrid_intern,Swissgrid AG,SuperAdmin
+Jack,MissingProject,jack.missingproject@example.com,Project That Is Not Cached,Swissgrid_intern,Swissgrid AG,Member
+Kara,MissingRole,kara.missingrole@example.com,SAAA-ProvisionerAAA,RoleThatDoesNotExist,Swissgrid AG,Member
+Liam,MissingCompany,liam.missingcompany@example.com,SAAA-ProvisionerAAA,Swissgrid_intern,CompanyThatDoesNotExist,Member

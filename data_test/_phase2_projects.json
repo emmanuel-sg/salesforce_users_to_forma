@@ -1,0 +1,7 @@
+{
+  "_comment": "Fixture for cache-projects --from-json: projects under key \"projects\" (or use a bare JSON array).",
+  "projects": [
+    { "project_id": "p1", "project_name": "S055_N00001552" },
+    { "project_id": "p2", "project_name": "My   Project  Name" }
+  ]
+}
