@@ -98,6 +98,41 @@ def fetch_companies_from_aps(*, hub_id: str, access_token: str) -> list[Company]
     return companies
 
 
+def create_company_in_aps(*, hub_id: str, access_token: str, company_name: str) -> Company:
+    """
+    Create a hub/account-level company (Construction Admin).
+
+    Note: APS payload requirements may vary by tenant. We send a minimal payload
+    (name + a generic trade) and return the created company id + name.
+    """
+    url = f"https://developer.api.autodesk.com/construction/admin/v1/accounts/{hub_id}/companies"
+    payload = {"name": company_name, "trade": "Other"}
+    resp = requests.post(
+        url,
+        headers=construction_admin_request_headers(access_token=access_token)
+        | {"Content-Type": "application/json"},
+        json=payload,
+        timeout=60,
+    )
+    resp.raise_for_status()
+    data: Any = resp.json()
+
+    if isinstance(data, dict):
+        # Try common shapes: {"data": {...}} or {"results": [...]} or direct item
+        item = None
+        if isinstance(data.get("data"), dict):
+            item = data["data"]
+        elif isinstance(data.get("results"), list) and data["results"]:
+            item = data["results"][0] if isinstance(data["results"][0], dict) else None
+        else:
+            item = data
+        if isinstance(item, dict):
+            cid, name = _item_id_name(item)
+            if cid and name:
+                return Company(company_id=cid, company_name=name)
+
+    raise ValueError("Unexpected create company response shape")
+
 def load_roles_from_json(path: Path) -> list[Role]:
     """
     Accepts:

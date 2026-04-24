@@ -321,6 +321,24 @@ def lookup_hub_company_id(conn: sqlite3.Connection, *, hub_id: str, company_name
     return None if row is None else str(row["company_id"])
 
 
+def hub_roles_count(conn: sqlite3.Connection, *, hub_id: str) -> int:
+    """Return number of cached hub roles for ``hub_id``."""
+    row = conn.execute(
+        "SELECT COUNT(1) AS n FROM hub_roles WHERE hub_id = ?",
+        (hub_id,),
+    ).fetchone()
+    return 0 if row is None else int(row["n"])
+
+
+def hub_companies_count(conn: sqlite3.Connection, *, hub_id: str) -> int:
+    """Return number of cached hub companies for ``hub_id``."""
+    row = conn.execute(
+        "SELECT COUNT(1) AS n FROM hub_companies WHERE hub_id = ?",
+        (hub_id,),
+    ).fetchone()
+    return 0 if row is None else int(row["n"])
+
+
 def replace_project_user_cache(
     conn: sqlite3.Connection,
     project_id: str,

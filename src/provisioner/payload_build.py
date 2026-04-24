@@ -58,6 +58,8 @@ def collect_import_payloads_from_csv(
     hub_id: str,
     csv_path: Path,
     logger,
+    access_token: str | None = None,
+    create_missing_companies: bool = False,
 ) -> tuple[dict[str, list[dict]], int, list[dict[str, str | int]]]:
     """
     Map CSV rows to project_id -> users[] for POST .../users:import.
@@ -131,6 +133,65 @@ def collect_import_payloads_from_csv(
                 conn, hub_id=hub_id, company_name_norm=normalize_key(company_name)
             )
             if not cid:
+                if create_missing_companies and access_token and company_name:
+                    try:
+                        from .db import upsert_hub_company
+                        from .roles_companies_cache import create_company_in_aps
+
+                        created = create_company_in_aps(
+                            hub_id=hub_id,
+                            access_token=access_token,
+                            company_name=company_name,
+                        )
+                        cname = normalize_display(created.company_name)
+                        upsert_hub_company(
+                            conn,
+                            hub_id=hub_id,
+                            company_id=created.company_id,
+                            company_name=cname,
+                            company_name_norm=normalize_key(cname),
+                        )
+                        cid = created.company_id
+                        logger.info(
+                            "Created missing company in hub",
+                            extra={
+                                "extras": {
+                                    "company_name": company_name,
+                                    "company_id": created.company_id,
+                                    "hub_id": hub_id,
+                                }
+                            },
+                        )
+                    except Exception as e:  # noqa: BLE001
+                        logger.error(
+                            "Failed to create missing company; skipping row",
+                            extra={
+                                "extras": {
+                                    "file": str(csv_path),
+                                    "row": i,
+                                    "email": email,
+                                    "project_name": project_name,
+                                    "company": company_name,
+                                    "error": str(e),
+                                }
+                            },
+                        )
+                        skipped += 1
+                        validation_skips.append(
+                            {
+                                "csv_row": i,
+                                "source_file": src_file,
+                                "email": email,
+                                "project_name": project_name,
+                                "reason": f"company not found and could not be created: {company_name}",
+                            }
+                        )
+                        continue
+
+                if cid:
+                    # created successfully above
+                    pass
+                else:
                 skipped += 1
                 validation_skips.append(
                     {
@@ -138,7 +199,11 @@ def collect_import_payloads_from_csv(
                         "source_file": src_file,
                         "email": email,
                         "project_name": project_name,
-                        "reason": "company not found in SQLite cache",
+                        "reason": (
+                            "company not found in SQLite cache"
+                            if not access_token
+                            else "company not found in SQLite cache (would be created on real import)"
+                        ),
                     }
                 )
                 logger.warning(
@@ -211,7 +276,10 @@ def build_import_payloads_from_csv(
     """Like :func:`collect_import_payloads_from_csv` but writes ``import-{project_id}.json`` per project."""
     output_dir.mkdir(parents=True, exist_ok=True)
     payloads, skipped, _skips = collect_import_payloads_from_csv(
-        db_path=db_path, hub_id=hub_id, csv_path=csv_path, logger=logger
+        db_path=db_path,
+        hub_id=hub_id,
+        csv_path=csv_path,
+        logger=logger,
     )
 
     written_projects = 0
