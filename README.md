@@ -1,117 +1,184 @@
-## Provisioner (ACC/FORMA User Management CLI)
+## Provisioner (ACC/FORMA user provisioning CLI)
 
-CLI tool to bulk assign and update users in Autodesk Construction Cloud (ACC/FORMA) using Autodesk Platform Services (APS).
+Provisioner is a small command-line tool that helps you **bulk add/update project users** in Autodesk Construction Cloud (ACC / Forma) from a CSV. It can also **sync** the current hub state (projects + project members) into a local SQLite cache so you can do a safe “what will change?” dry-run before importing.
 
-### Requirements
+### What you usually do (3 commands)
 
-- Python 3.10+ recommended
+1) **Choose which hub/account you are working with**
 
-### Setup
-
-Install dependencies (editable install recommended for development):
-
-```bash
-python -m pip install -e .
-```
-
-### Configure hubs
-
-Copy `.env.example` to `.env` and fill in your hubs.
-
-List configured hubs:
+List configured hubs (from `.env`):
 
 ```bash
 python -m provisioner hubs list
 ```
 
-Choose the active hub:
+Choose the active hub (interactive; saves to `data/active_hub.json`):
 
 ```bash
 python -m provisioner hubs choose
 ```
 
-### APS login
+2) **Sync projects + current users into the local DB**
 
-**Default: 3-legged OAuth** — register a **Callback URL** in your APS app that matches `APS_REDIRECT_URI` in `.env` (default `http://127.0.0.1:8089/callback`). Then sign in once; tokens are stored under `data/tokens/` (ignored by git):
+```bash
+python -m provisioner sync-hub
+```
+
+3) **Import a CSV (dry-run first, then real import)**
+
+```bash
+python -m provisioner import-csv --csv users_to_import/your.csv --dry-run --report logs/import-plan.json
+python -m provisioner import-csv --csv users_to_import/your.csv --report logs/import-result.json
+```
+
+### Quick setup
+
+- **Python**: 3.10+ recommended
+- Install the package (dev/editable):
+
+```bash
+python -m pip install -e .
+```
+
+### Configure hubs (dev vs prod)
+
+Copy `.env.example` to `.env` and fill in your values.
+
+- `HUBS=...`: comma-separated hub keys (for example: `swissgrid_dev,swissgrid_prod`)
+- For each hub key you define:
+  - `HUB_<key>_ID`: **Construction Admin account id** (UUID)
+  - `HUB_<key>_DM_HUB_ID`: **Data Management hub id** (usually `b.<uuid>`) for listing projects
+  - `HUB_<key>_CLIENT_ID` / `HUB_<key>_CLIENT_SECRET`: APS app credentials
+
+List hubs you configured:
+
+```bash
+python -m provisioner hubs list
+```
+
+Choose the active hub (saved in `data/active_hub.json`):
+
+```bash
+python -m provisioner hubs choose
+```
+
+If you have both dev+prod hubs configured, you typically:
+- choose `swissgrid_dev` when testing
+- choose `swissgrid_prod` when ready for the real import
+
+### Authentication (APS)
+
+Provisioner can obtain an APS access token for you.
+
+- **3-legged (default)**: opens a browser once, then stores tokens under `data/tokens/` (ignored by git)
 
 ```bash
 python -m provisioner auth login
 python -m provisioner auth status
 ```
 
-**Optional: 2-legged (client credentials)** — set `APS_AUTH_MODE=client_credentials` (or `APS_USE_CLIENT_CREDENTIALS=1`). Your APS app must be a **confidential** app. No browser: `auth login` requests a token with `grant_type=client_credentials`.
-
-**ACC environment variables (optional):** set `ACC_ENV=TST` (or `PROD`, etc.) to load credentials and user id from suffixed names instead of duplicating per hub:
-
-- `APS_CLIENT_ID_{ACC_ENV}`, `APS_CLIENT_SECRET_{ACC_ENV}` — used for any hub whose `HUB_<key>_CLIENT_ID` / `HUB_<key>_CLIENT_SECRET` are empty (per-hub values still win when set).
-- `APS_USER_ID_{ACC_ENV}` — sent as **`x-user-id`** on Construction Admin calls (e.g. `users:import`, list users). If `ACC_ENV` is unset, the header still falls back to `APS_USER_ID_TST` or `APS_USER_ID`.
-
-If you previously used 3-legged, the tool **ignores** a cached token file that still contains a `refresh_token` when client-credentials mode is on, and fetches a new 2-legged token instead (so it does not open the browser for refresh/login).
-
-For **`import-csv`** / **`sync-hub`** with 3-legged auth only, pass **`--no-browser`** to fail fast instead of opening a login window (or use `--access-token`).
-
-Print a valid access token (3-legged: refreshes if needed; 2-legged: fetches or uses cache):
+- **Get/print a valid token** (refreshes if needed):
 
 ```bash
 python -m provisioner auth token
 ```
 
-### Hub roles & companies (Phase 5)
+Tip: for automation you can pass `--no-browser` to fail fast (instead of opening a login window).
 
-**Roles:** maintain a single manual file (when you are not using the roles API):
+### How to import a CSV into Forma (end-to-end)
 
-- `data/hub_roles.json` — shape: `{"roles":[{"id":"<uuid>","name":"Role Display Name"}, ...]}`
+This is the “friendly” flow that answers: **choose hub → dry-run → real import**.
 
-Load into SQLite:
-
-```bash
-python -m provisioner cache-hub-roles --hub-id YOUR_HUB_ID
-```
-
-Optional: `--from-json other/path.json` or `--access-token ...` to load roles from APS instead.
-
-**Companies:** loaded from the **hub/account API** (no default JSON file):
+1) Choose the hub you want (dev or prod)
 
 ```bash
-python -m provisioner cache-hub-companies --hub-id YOUR_HUB_ID --access-token "$(python -m provisioner auth token --no-browser)"
+python -m provisioner hubs choose
 ```
 
-(`--from-json` exists only for rare offline/testing.)
-
-Build `users:import` JSON from a CSV (`--hub-id` or active hub from `hubs choose`):
+2) Sync the hub (projects + existing users) into the DB
 
 ```bash
-python -m provisioner build-payload --csv users_to_import/your.csv --out-dir data/payloads
+python -m provisioner sync-hub
 ```
 
-Call the **users:import** API (batched per project, retries on 429/5xx; OAuth refresh on 401 when using stored tokens):
+3) Make sure hub roles + companies are cached (needed to turn names into IDs)
+
+- **Roles** (offline JSON list you maintain):
 
 ```bash
-python -m provisioner import-csv --csv users_to_import/your.csv
+python -m provisioner cache-hub-roles --hub-id YOUR_ACCOUNT_ID --from-json data/hub_roles_TST.json
 ```
 
-Optional: `--access-token ...`, `--batch-size 25`, `--max-retries 5`.
+- **Companies** (fetched from APS):
 
-**Phase 8 — dry-run and report:** `--dry-run` loads the CSV and compares to **`project_user_cache` in SQLite only** (no `users:import`, no list-users API). Refresh the cache first with `sync-hub` if you want an up-to-date ADD/UPDATE/SKIP plan. `--report path.csv` or `--report path.json` writes validation skips plus per-row planned actions; after a real import, JSON also includes `post_import` batch counts.
+```bash
+python -m provisioner cache-hub-companies --hub-id YOUR_ACCOUNT_ID --access-token "$(python -m provisioner auth token --no-browser)"
+```
+
+4) Dry-run import (no APS writes; produces a plan/report)
 
 ```bash
 python -m provisioner import-csv --csv users_to_import/your.csv --dry-run --report logs/import-plan.json
 ```
 
-Offline / sample fixtures (optional) live under `data_test/` — e.g. `data_test/_phase2_projects.json`, `data_test/_phase5_test.csv`, `data_test/_phase3.env` for hub CLI checks.
-
-### Run
-
-Show CLI help:
+5) Real import (calls `users:import`; produces an outcome report)
 
 ```bash
-python -m provisioner --help
+python -m provisioner import-csv --csv users_to_import/your.csv --report logs/import-result.json
 ```
+
+### How to sync projects (and users) for the active hub
+
+`sync-hub` lists all projects in the hub, then for each project it lists current members, and stores it into SQLite.
+
+```bash
+python -m provisioner sync-hub
+```
+
+### How to “sync hubs”
+
+Provisioner does not “sync hubs from APS” into the DB (hubs come from your `.env`). What you can do is:
+
+- list hubs you configured:
+
+```bash
+python -m provisioner hubs list
+```
+
+- change the active hub:
+
+```bash
+python -m provisioner hubs choose
+```
+
+### CLI command reference (easy descriptions)
+
+Run `python -m provisioner --help` to see all commands. Here is what each one does:
+
+- **`hubs list`**: Show hub keys loaded from `.env` (your dev/prod choices).
+- **`hubs choose`**: Set the “active hub” used by commands that don’t get `--hub-key`/`--hub-id`.
+
+- **`auth login`**: Sign in (3-legged) and save tokens under `data/tokens/`.
+- **`auth status`**: Show whether the token file exists and if it’s expired.
+- **`auth token`**: Print a valid access token (refresh or login if needed).
+
+- **`sync-hub`**: Fetch all projects for the active hub, then fetch all users per project; update the SQLite cache (used for dry-runs and diffing).
+
+- **`validate-csv`**: Validate all CSV files in `users_to_import/` and report row-level issues.
+
+- **`build-payload`**: Convert a CSV into per-project JSON payload files (what would be POSTed to `users:import`).
+- **`import-csv`**: Import users from a CSV into ACC (batched per project). Use `--dry-run` to only compute the plan from the DB.
+
+- **`db-init`**: Create the SQLite schema file (usually not needed; other commands initialize automatically).
+- **`cache-projects`**: Cache projects into SQLite (mostly for troubleshooting; `sync-hub` normally handles this).
+- **`lookup-project`**: Find a `project_id` from a project name using the SQLite cache.
+- **`cache-hub-roles`**: Cache account-level roles into SQLite (required for mapping role names → roleIds).
+- **`cache-hub-companies`**: Cache account-level companies into SQLite (required for mapping company names → companyId).
 
 ### Project structure
 
 - `src/`: Python package source
 - `users_to_import/`: input CSV files to import
-- `data/`: local cache (SQLite, OAuth tokens, `hub_roles.json`, `active_hub.json`)
-- `data_test/`: sample JSON/CSV/env for local testing (not required for production)
-- `logs/`: log files
+- `data/`: local cache (SQLite DB, OAuth tokens, active hub selection)
+- `data_test/`: sample JSON/CSV/env fixtures for local testing
+- `logs/`: log files and import reports
