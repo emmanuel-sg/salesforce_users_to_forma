@@ -154,6 +154,7 @@ def run_import_for_payloads(
     max_retries_per_batch: int,
     base_backoff_seconds: float,
     logger: logging.Logger,
+    on_batch_success: Callable[[str, list[dict[str, Any]]], None] | None = None,
 ) -> tuple[int, int, int]:
     """
     For each project_id, POST users in batches.
@@ -184,6 +185,14 @@ def run_import_for_payloads(
             if ok:
                 batches_ok += 1
                 users_sent += len(batch)
+                if on_batch_success:
+                    try:
+                        on_batch_success(project_id, batch)
+                    except Exception as e:  # noqa: BLE001
+                        logger.error(
+                            "Post-import hook failed; continuing",
+                            extra={"extras": {"project_id": project_id, "error": str(e)}},
+                        )
             else:
                 batches_fail += 1
                 logger.error(

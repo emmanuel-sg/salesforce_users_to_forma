@@ -98,6 +98,17 @@ Run `python -m provisioner --help` to see all commands. Here is what each one do
 - **`import-csv`**: Import users from a CSV into ACC (batched per project). Use `--dry-run` to only compute the plan from the DB.
 - **`cache-projects`**: Cache projects into SQLite (projects only; `sync-hub` normally supersedes this).
 
+### Folder auto-provisioning (after import)
+
+On a real `import-csv` run (not dry-run), Provisioner also ensures a folder structure exists in each project for certain roles, and applies company permissions on the company folder:
+
+- If a user has role **Lieferant** and company `X`:
+  - `V_extern_Vertraulich/VB_Lieferant/X`
+- If a user has role **Fachplaner** and company `X`:
+  - `V_extern_Vertraulich/VA_Planer/X`
+
+It then grants the user’s **company** edit-level permissions on the `X` folder. This logic is idempotent and runs after successful provisioning batches.
+
 ### Project structure
 
 - `src/`: Python package source

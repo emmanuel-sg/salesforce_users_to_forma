@@ -214,6 +214,13 @@ def collect_import_payloads_from_csv(
 
             role_names = [normalize_display(x) for x in roles_raw.split(";")]
             role_names = [x for x in role_names if x]
+            role_kinds: list[str] = []
+            for rn in role_names:
+                k = rn.casefold()
+                if "lieferant" in k and "lieferant" not in role_kinds:
+                    role_kinds.append("lieferant")
+                if "fachplaner" in k and "fachplaner" not in role_kinds:
+                    role_kinds.append("fachplaner")
             role_ids: list[str] = []
             missing_role = False
             for rn in role_names:
@@ -258,6 +265,9 @@ def collect_import_payloads_from_csv(
                         "csv_row": i,
                         "source_file": src_file,
                         "project_name": project_name,
+                        "company_name": company_name,
+                        "role_names": list(role_names),
+                        "role_kinds": list(role_kinds),
                     },
                 }
             )

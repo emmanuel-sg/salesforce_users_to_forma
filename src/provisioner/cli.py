@@ -352,6 +352,8 @@ def main(argv: list[str] | None = None) -> int:
             fetch_companies_from_aps,
             fetch_roles_from_aps,
         )
+        from .folder_provisioner import ensure_firma_folder_and_permissions
+        from .projects_cache import resolve_dm_hub_id
 
         hubs_list = load_hubs_from_env()
         hub = resolve_hub_by_key(hubs_list, args.hub_key)
@@ -496,6 +498,32 @@ def main(argv: list[str] | None = None) -> int:
             return 0 if fetch_dropped_users == 0 else 1
 
         if args.dry_run:
+            # Folder provisioning: no API calls in dry-run; just log intended actions for qualifying rows.
+            dm_hub_id = resolve_dm_hub_id(hub=hub, access_token=token or "")
+            for project_id, users in payloads.items():
+                for u in users:
+                    meta = u.get("_provisioner_meta")
+                    if not isinstance(meta, dict):
+                        continue
+                    firma = str(meta.get("company_name") or "").strip()
+                    role_kinds = meta.get("role_kinds")
+                    if not firma or not isinstance(role_kinds, list) or not role_kinds:
+                        continue
+                    company_id = str(u.get("companyId") or "").strip()
+                    if not company_id:
+                        continue
+                    for rk in [str(x) for x in role_kinds if x]:
+                        ensure_firma_folder_and_permissions(
+                            dm_hub_id=dm_hub_id,
+                            project_id=project_id,
+                            firma_name=firma,
+                            role_kind=rk,
+                            company_id=company_id,
+                            access_token=token or "",
+                            refresh_access_token=None,
+                            logger=logger,
+                            dry_run=True,
+                        )
             _emit_report(None)
             print(
                 f"DRY-RUN Summary: add={diff_sum.add} update={diff_sum.update} skip_same={diff_sum.skip_same} "
@@ -506,6 +534,49 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         assert token is not None
+        dm_hub_id = resolve_dm_hub_id(hub=hub, access_token=token)
+
+        def _post_batch(project_id: str, batch_users: list[dict]) -> None:
+            """
+            After a successful users:import batch, ensure folder structure + permissions
+            for qualifying users (role_kind Lieferant/Fachplaner) with a company assigned.
+            """
+            for u in batch_users:
+                meta = u.get("_provisioner_meta")
+                if not isinstance(meta, dict):
+                    continue
+                firma = str(meta.get("company_name") or "").strip()
+                role_kinds = meta.get("role_kinds")
+                if not firma or not isinstance(role_kinds, list) or not role_kinds:
+                    continue
+                company_id = str(u.get("companyId") or "").strip()
+                if not company_id:
+                    continue
+                for rk in [str(x) for x in role_kinds if x]:
+                    ok = ensure_firma_folder_and_permissions(
+                        dm_hub_id=dm_hub_id,
+                        project_id=project_id,
+                        firma_name=firma,
+                        role_kind=rk,
+                        company_id=company_id,
+                        access_token=token,
+                        refresh_access_token=refresher,
+                        logger=logger,
+                        dry_run=False,
+                    )
+                    if not ok:
+                        logger.error(
+                            "Folder provisioning failed",
+                            extra={
+                                "extras": {
+                                    "project_id": project_id,
+                                    "company_id": company_id,
+                                    "firma": firma,
+                                    "role_kind": rk,
+                                }
+                            },
+                        )
+
         batches_ok, batches_fail, users_sent = run_import_for_payloads(
             payloads,
             access_token=token,
@@ -514,6 +585,7 @@ def main(argv: list[str] | None = None) -> int:
             max_retries_per_batch=args.max_retries,
             base_backoff_seconds=1.0,
             logger=logger,
+            on_batch_success=_post_batch,
         )
         _emit_report(
             {
